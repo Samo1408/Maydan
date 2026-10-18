@@ -1,0 +1,77 @@
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-600.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-700.css";
+@import "@fontsource/ibm-plex-sans-arabic/latin-400.css";
+@import "@fontsource/ibm-plex-sans-arabic/latin-500.css";
+@import "@fontsource/ibm-plex-sans-arabic/latin-600.css";
+@import "@fontsource/ibm-plex-sans-arabic/latin-700.css";
+@import "@fontsource/fraunces/600.css";
+
+@theme {
+  --color-bg: #f3efe6;
+  --color-surface: #fffdf8;
+  --color-fg: #1c1915;
+  --color-muted: #6e665c;
+  --color-primary: #0e6b56;
+  --color-primary-fg: #f4fbf7;
+  --color-accent: #9a3f16;
+  --color-accent-fg: #fff7f2;
+  --color-border: #e3d9c8;
+  --color-rule: #ebe4d8;
+  --color-ink: #14241f;
+  --font-sans: "IBM Plex Sans Arabic", "Noto Naskh Arabic", "Segoe UI", Tahoma, sans-serif;
+  --font-display: "Fraunces", "IBM Plex Sans Arabic", serif;
+  --radius-lg: 0.875rem;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 31px,
+      var(--color-rule) 32px
+    );
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  label:has(input) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
