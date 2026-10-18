@@ -244,8 +244,10 @@ test("site title Grok App is a real name, not a sentinel", () => {
 });
 
 test("published grok.me slug is still a title fallback", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "grok-og-host-fallback-"));
   const out = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
+    cwd,
   });
   assert.match(out, /property="og:title" content="Wild Race"/);
 });
@@ -306,6 +308,7 @@ test("emits og:image for a public host and prefers a custom card", () => {
   const placeholder = injectGrokPwaHead("<html><head></head></html>", {
     appName: "Wild Race",
     host: "wild-race.grok.me",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-placeholder-")),
     site: { title: "Wild Race" },
   });
   assert.match(
@@ -317,6 +320,7 @@ test("emits og:image for a public host and prefers a custom card", () => {
   const custom = injectGrokPwaHead("<html><head></head></html>", {
     appName: "Wild Race",
     host: "wild-race.grok.me",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-custom-")),
     site: { title: "Wild Race", card: "custom", type: "x:game" },
   });
   assert.match(custom, /property="og:image" content="https:\/\/wild-race\.grok\.me\/og\.jpg"/);
@@ -326,6 +330,7 @@ test("emits og:image for a public host and prefers a custom card", () => {
 test("placeholder og:image appends site.color when it is 6-digit hex", () => {
   const themed = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-color-")),
     site: { title: "Wild Race", color: "#FF4D2E" },
   });
   assert.match(
@@ -335,12 +340,14 @@ test("placeholder og:image appends site.color when it is 6-digit hex", () => {
 
   const invalid = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-invalid-color-")),
     site: { title: "Wild Race", color: "red" },
   });
   assert.doesNotMatch(invalid, /color=/);
 
   const custom = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-custom-color-")),
     site: { title: "Wild Race", card: "custom", color: "FF4D2E" },
   });
   assert.doesNotMatch(custom, /color=/);
