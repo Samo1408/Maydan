@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "ميدان — جمع البيانات دون إنترنت",
+      "hasCanvas": false,
+      "bodyTextLen": 930,
+      "bodyTextHash": "3efbdfc1ac9b67a8af55174ab0c5fa167c25a4fb990b6c6ba3b0aff8c184845f",
+      "bodyTextPrefix": "M MAYDAN ميدان المكتبة الجمع الخادم المحلي يعمل FIELD LEDGER دفت",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "ميدان — جمع البيانات دون إنترنت",
+      "hasCanvas": false,
+      "bodyTextLen": 930,
+      "bodyTextHash": "3efbdfc1ac9b67a8af55174ab0c5fa167c25a4fb990b6c6ba3b0aff8c184845f",
+      "bodyTextPrefix": "M MAYDAN ميدان المكتبة الجمع الخادم المحلي يعمل FIELD LEDGER دفت",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
