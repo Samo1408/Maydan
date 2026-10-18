@@ -16,7 +16,7 @@ import {
   getSnapshot,
   importSubmissions,
   saveForm,
-} from "./api";
+} from "@/lib/maydan/api";
 import { idbGet, idbSet } from "./idb";
 import type { Answers, FormDef, Snapshot, Submission } from "./types";
 
