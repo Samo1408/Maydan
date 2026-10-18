@@ -309,13 +309,21 @@ export function resolveOgTitle(
   host = "",
   documentTitle = "",
 ) {
-  const fromSite = String(site.title ?? "").trim();
-  if (fromSite) return fromSite;
+  // A real document title is the most specific identity for the rendered page.
   const fromDoc = String(documentTitle ?? "").trim();
   if (fromDoc) return fromDoc;
+
+  // An explicitly supplied app name (anything other than the generic fallback)
+  // must not be overwritten by this workspace's site.json identity.
+  const fromArg = String(appName ?? "").trim();
+  if (fromArg && fromArg !== DEFAULT_APP_NAME) return fromArg;
+
+  // A configured site title wins over the published-host slug, while the
+  // generic default remains a fallback rather than a forced identity.
+  const fromSite = String(site.title ?? "").trim();
+  if (fromSite) return fromSite;
   const fromHost = appNameFromHost(host);
   if (fromHost && fromHost !== DEFAULT_APP_NAME) return fromHost;
-  const fromArg = String(appName ?? "").trim();
   return fromArg || DEFAULT_APP_NAME;
 }
 
