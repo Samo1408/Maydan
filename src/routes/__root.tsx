@@ -41,6 +41,16 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const snapshot = Route.useLoaderData();
+  if (import.meta.env.VITE_ANDROID_APP === "true") {
+    // The Android shell supplies the document and starts the embedded LAN server.
+    // Avoid SSR-only document components while rendering the same route tree in WebView.
+    return (
+      <MaydanProvider initial={snapshot}>
+        <Frame />
+        <SafeToaster />
+      </MaydanProvider>
+    );
+  }
   return (
     <RootDocument>
       <MaydanProvider initial={snapshot}>
