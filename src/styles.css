@@ -1,4 +1,7 @@
 @import "tailwindcss";
+
+/* Android build uses android-web as Vite root; explicitly scan app source files outside that root. */
+@source "./";
 @import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
 @import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
 @import "@fontsource/ibm-plex-sans-arabic/arabic-600.css";
