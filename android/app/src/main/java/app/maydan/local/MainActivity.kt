@@ -19,11 +19,18 @@ import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
-    companion object { private const val GEO_PERMISSION_REQUEST = 6002 }
     private lateinit var webView: WebView
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private var pendingGeoCallback: GeolocationPermissions.Callback? = null
     private var pendingGeoOrigin: String? = null
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val granted = results.values.any { it }
+        pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
+        pendingGeoCallback = null
+        pendingGeoOrigin = null
+    }
     private val filePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         fileChooserCallback?.onReceiveValue(uri?.let { arrayOf(it) })
         fileChooserCallback = null
@@ -56,7 +63,12 @@ class MainActivity : ComponentActivity() {
                     } else {
                         pendingGeoOrigin = origin
                         pendingGeoCallback = callback
-                        requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), GEO_PERMISSION_REQUEST)
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
                     }
                 }
 
@@ -85,17 +97,6 @@ class MainActivity : ComponentActivity() {
         }
         setContentView(webView)
         webView.postDelayed({ webView.loadUrl("http://127.0.0.1:8080/") }, 500)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == GEO_PERMISSION_REQUEST) {
-            val granted = grantResults.any { it == PackageManager.PERMISSION_GRANTED }
-            pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
-            pendingGeoCallback = null
-            pendingGeoOrigin = null
-        }
     }
 
     @Deprecated("Deprecated in Java")
