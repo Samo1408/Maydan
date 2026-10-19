@@ -34,3 +34,10 @@
 - تحديث معالجة صلاحيات الموقع في `MainActivity` إلى `ActivityResultContracts.RequestMultiplePermissions` بدلًا من تجاوز `onRequestPermissionsResult` القديم.
 - جعل الاستجابات المبكرة داخل كتلة `synchronized` في `LocalMaydanServer.handleApi` تعود إلى الكتلة صراحةً باستخدام `return@synchronized`، مع الحفاظ على الاستجابات الحالية.
 - لم يتم التحقق من بناء Gradle فعليًا في هذه البيئة لعدم توفر Gradle Wrapper أو تثبيت Gradle محليًا؛ يلزم تشغيل بناء CI للتأكيد النهائي.
+
+## إصلاح عرض واجهة Android (2026-10-19)
+
+- أُضيف توجيه `@source "./"` إلى `src/styles.css` حتى يفحص Tailwind CSS ملفات المصدر الموجودة في `src/` عند بناء نسخة Android، لأن جذر Vite في هذا البناء هو `android-web/`.
+- يهدف ذلك إلى توليد فئات Tailwind المستخدمة في مكونات React بدل ظهور الصفحة بتنسيق افتراضي غير مكتمل.
+- لم تُعد كتابة النصوص العربية؛ ترميز الصفحة وملفات CSS ما زال UTF-8، وتحدد الصفحة `lang="ar"` و`dir="rtl"`.
+- تعذر التحقق من بناء Vite في هذه البيئة لأن تثبيت npm لم يكتمل ولم يتوفر الأمر `vite`؛ يلزم إعادة البناء في بيئة بها اعتماديات المشروع.
