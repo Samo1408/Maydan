@@ -40,7 +40,7 @@ class LocalMaydanServer(
         }
         if (session.method != Method.POST) return json(Response.Status.METHOD_NOT_ALLOWED, JSONObject().put("error", "الطريقة غير مدعومة"))
         val body = readJson(session)
-        synchronized(lock) {
+        return synchronized(lock) {
             val data = loadStore()
             when (path) {
                 "/api/forms/save" -> {
@@ -66,12 +66,12 @@ class LocalMaydanServer(
                     val id = body.optString("id")
                     if (indexOf(data.getJSONArray("submissions"), "id", id) < 0) {
                         val form = findById(data.getJSONArray("forms"), body.optString("formId"))
-                            ?: return json(Response.Status.BAD_REQUEST, JSONObject().put("error", "النموذج غير موجود"))
+                            ?: return@synchronized json(Response.Status.BAD_REQUEST, JSONObject().put("error", "النموذج غير موجود"))
                         if (!form.optBoolean("deployed", false) && body.optString("source") == "lan") {
-                            return json(Response.Status.BAD_REQUEST, JSONObject().put("error", "النموذج غير منشور على الشبكة"))
+                            return@synchronized json(Response.Status.BAD_REQUEST, JSONObject().put("error", "النموذج غير منشور على الشبكة"))
                         }
                         validateRequired(form, body.optJSONObject("answers") ?: JSONObject())?.let {
-                            return json(Response.Status.BAD_REQUEST, JSONObject().put("error", it))
+                            return@synchronized json(Response.Status.BAD_REQUEST, JSONObject().put("error", it))
                         }
                         val cleanSubmission = JSONObject()
                             .put("id", id)
@@ -87,7 +87,7 @@ class LocalMaydanServer(
                 "/api/submissions/import" -> {
                     val formId = body.optString("formId")
                     if (findById(data.getJSONArray("forms"), formId) == null) {
-                        return json(Response.Status.BAD_REQUEST, JSONObject().put("error", "النموذج غير موجود"))
+                        return@synchronized json(Response.Status.BAD_REQUEST, JSONObject().put("error", "النموذج غير موجود"))
                     }
                     val existing = data.getJSONArray("submissions")
                     val rows = body.optJSONArray("rows") ?: JSONArray()
@@ -107,9 +107,9 @@ class LocalMaydanServer(
                 }
                 "/api/submissions/get" -> {
                     val found = findById(data.getJSONArray("submissions"), body.optString("id"))
-                    return json(Response.Status.OK, JSONObject().put("submission", found ?: JSONObject.NULL))
+                    return@synchronized json(Response.Status.OK, JSONObject().put("submission", found ?: JSONObject.NULL))
                 }
-                else -> return json(Response.Status.NOT_FOUND, JSONObject().put("error", "المسار غير موجود"))
+                else -> return@synchronized json(Response.Status.NOT_FOUND, JSONObject().put("error", "المسار غير موجود"))
             }
             json(Response.Status.OK, snapshot())
         }
