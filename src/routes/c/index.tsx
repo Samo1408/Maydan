@@ -10,8 +10,8 @@ function CollectIndex() {
   const forms = snap.forms.filter((form) => form.deployed);
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-6">
-      <p className="font-display text-xs tracking-widest text-primary">MAYDAN</p>
-      <h1 className="mt-1 text-3xl font-bold">النماذج الجاهزة للتعبئة</h1>
+      <p className="font-display text-xs tracking-widest text-primary">ALSADEK-FORMS</p>
+      <h1 className="mt-1 text-3xl font-bold">الصادق إخوان 🙂</h1>
       <p className="mt-2 text-sm text-pretty text-muted">
         أنت على شبكة الجهاز المستضيف. اختر نموذجاً، أرسله، وتُحفظ الإجابة هناك مباشرة.
       </p>
