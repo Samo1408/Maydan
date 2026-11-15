@@ -26,6 +26,20 @@
   --radius-lg: 0.875rem;
 }
 
+html[data-theme="dark"] {
+  --color-bg: #141210;
+  --color-surface: #1f1b16;
+  --color-fg: #f6f1e8;
+  --color-muted: #b7aea2;
+  --color-primary: #3dbe9a;
+  --color-primary-fg: #06241c;
+  --color-accent: #e08a5a;
+  --color-accent-fg: #2a1208;
+  --color-border: #3c342c;
+  --color-rule: #2c271f;
+  --color-ink: #0c1613;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
