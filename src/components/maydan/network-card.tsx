@@ -28,29 +28,23 @@ function QrCode({ value }: { value: string }) {
 export function NetworkCard({ forms, network }: { forms: FormDef[]; network: NetworkInfo }) {
   const deployed = forms.filter((form) => form.deployed);
   const [formId, setFormId] = useState(deployed[0]?.id ?? "");
-  const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState("");
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
 
   useEffect(() => {
     if (!deployed.some((form) => form.id === formId)) setFormId(deployed[0]?.id ?? "");
   }, [deployed, formId]);
 
   const path = formId ? `/c/${formId}` : "/c";
-  const links = useMemo(() => {
-    const values = [
-      ...network.addresses.map((item) => ({
-        label: item.name,
+  const entryLinks = useMemo(
+    () =>
+      network.addresses.map((item) => ({
+        label: item.name || "جهاز إدخال",
         href: `http://${item.address}:${network.port}${path}`,
       })),
-    ];
-    if (origin) values.unshift({ label: "هذه الشاشة", href: `${origin}${path}` });
-    return values;
-  }, [network.addresses, network.port, origin, path]);
-  const primary = links[0]?.href ?? path;
+    [network.addresses, network.port, path],
+  );
+  const links = entryLinks;
+  const primary = entryLinks[0]?.href ?? "";
 
   async function copy(href: string) {
     const ok = await copyText(href);
@@ -68,14 +62,14 @@ export function NetworkCard({ forms, network }: { forms: FormDef[]; network: Net
         <div>
           <h2 className="text-lg font-semibold text-balance">جمع عبر الراوتر فقط</h2>
           <p className="mt-1 text-sm text-pretty text-primary-fg/80">
-            ميدان هو الخادم. الهاتف الثاني على نفس الواي فاي يفتح الرابط، يملأ النموذج، وتعود الإجابة إلى هذا الجهاز من غير إنترنت.
+            الصادق إخوان هو الخادم. الهاتف الثاني على نفس الواي فاي يفتح رابط أجهزة الإدخال، يملأ النموذج، وتعود الإجابة إلى هذا الجهاز من غير إنترنت.
           </p>
         </div>
       </div>
       <div className="grid gap-4 p-4 lg:grid-cols-[auto_1fr]">
         <div className="flex flex-col items-center gap-2">
-          <QrCode value={primary} />
-          <p className="text-center text-xs text-muted">امسح الرمز من الهاتف</p>
+          {primary ? <QrCode value={primary} /> : <div className="size-40 rounded-lg bg-rule" aria-hidden="true" />}
+          <p className="text-center text-xs text-muted">رابط أجهزة الإدخال</p>
         </div>
         <div className="space-y-3">
           {deployed.length ? (
@@ -98,6 +92,11 @@ export function NetworkCard({ forms, network }: { forms: FormDef[]; network: Net
               انشر نموذجاً من بطاقته ليظهر رابطه هنا. صفحة الجمع تبقى جاهزة.
             </p>
           )}
+          {links.length === 0 ? (
+            <p className="rounded-lg bg-bg px-3 py-3 text-sm text-muted">
+              لم يُعثر على عنوان شبكة. تأكد أن الجهاز متصل بالراوتر ثم اضغط تحديث.
+            </p>
+          ) : null}
           <ul className="space-y-2">
             {links.map((link) => (
               <li key={link.href} className="flex items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2">
@@ -126,7 +125,7 @@ export function NetworkCard({ forms, network }: { forms: FormDef[]; network: Net
             )}
           </div>
           <p className="text-xs text-pretty text-muted">
-            الرابط على الشبكة المحلية يعمل بـ http لأن الشهادة لا تحتاج إنترنت. الكاميرا والموقع يعملان بثقة على الجهاز الذي يشغّل ميدان؛ بعض المتصفحات تمنعهما على http من الهاتف، وتبقى أسئلة النص والاختيار والتاريخ متاحة.
+            الرابط على الشبكة المحلية يعمل بـ http لأن الشهادة لا تحتاج إنترنت. الكاميرا والموقع يعملان بثقة على الجهاز الذي يشغّل الصادق إخوان؛ بعض المتصفحات تمنعهما على http من الهاتف، وتبقى أسئلة النص والاختيار والتاريخ متاحة.
           </p>
         </div>
       </div>
