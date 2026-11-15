@@ -18,6 +18,7 @@ import {
   saveForm,
 } from "./api";
 import { idbGet, idbSet } from "./idb";
+import { newId } from "./id";
 import type { Answers, FormDef, Snapshot, Submission } from "./types";
 
 type ImportRow = { id: string; answers: Answers; deviceLabel?: string; submittedAt?: string };
@@ -26,7 +27,7 @@ type Op =
   | { kind: "saveForm"; form: FormDef }
   | { kind: "deleteForm"; id: string }
   | { kind: "deleteSubmission"; id: string }
-  | { kind: "addSubmission"; id: string; formId: string; answers: Answers; deviceLabel: string; source: "desk" | "lan" }
+  | { kind: "addSubmission"; id: string; formId: string; answers: Answers; deviceLabel: string; source: "desk" | "lan"; categoryId?: string }
   | { kind: "importSubmissions"; formId: string; rows: ImportRow[] };
 
 type MaydanApi = {
@@ -41,6 +42,7 @@ type MaydanApi = {
     answers: Answers;
     deviceLabel: string;
     source: "desk" | "lan";
+    categoryId?: string;
   }) => Promise<void>;
   importSubmissions: (
     formId: string,
@@ -76,7 +78,40 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
     if (op.kind === "deleteForm") return deleteForm({ data: { id: op.id } });
     if (op.kind === "deleteSubmission") return deleteSubmission({ data: { id: op.id } });
     if (op.kind === "importSubmissions") return importSubmissions({ data: op });
-    return addSubmission({ data: op });
+    const response = await fetch("/api/collect", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        id: op.id,
+        formId: op.formId,
+        answers: op.answers,
+        deviceLabel: op.deviceLabel,
+        source: op.source,
+        categoryId: op.categoryId,
+      }),
+    });
+    const text = await response.text();
+    let payload: { ok?: boolean; message?: string } | null = null;
+    try {
+      payload = JSON.parse(text) as { ok?: boolean; message?: string };
+    } catch {
+      payload = null;
+    }
+    if (payload?.ok === true) return snapRef.current;
+    if (payload && payload.ok === false) throw new Error(payload.message || "تعذّر إرسال الإجابة");
+    if (response.status === 404) {
+      return addSubmission({
+        data: {
+          id: op.id,
+          formId: op.formId,
+          answers: op.answers,
+          deviceLabel: op.deviceLabel,
+          source: op.source,
+          categoryId: op.categoryId,
+        },
+      });
+    }
+    throw new Error("تعذّر الاتصال بالجهاز المستضيف. تأكد أن نافذة الصادق إخوان مفتوحة وأن الجهازين على نفس الواي فاي.");
   }, []);
 
   const optimistic = useCallback((op: Op, base: Snapshot): Snapshot => {
@@ -117,6 +152,7 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
           submittedAt: new Date().toISOString(),
           deviceLabel: op.deviceLabel,
           source: op.source,
+          categoryId: op.categoryId,
         },
         ...base.submissions,
       ],
@@ -124,9 +160,8 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
   }, []);
 
   const refresh = useCallback(async () => {
-    if (inflight.current > 0) return;
     try {
-      if (queue.current.length) {
+      if (queue.current.length && inflight.current === 0) {
         const pending = [...queue.current];
         let latest: Snapshot | null = null;
         for (const op of pending) latest = await applyServer(op);
@@ -135,10 +170,11 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
         if (latest) commit(latest);
       }
       const next = await getSnapshot();
-      if (inflight.current === 0 && queue.current.length === 0) commit(next);
+      if (queue.current.length === 0) commit(next);
       setOffline(false);
     } catch {
       setOffline(true);
+      throw new Error("تعذّر تحديث البيانات");
     }
   }, [applyServer, commit]);
 
@@ -148,14 +184,23 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
       const stored = await idbGet<Op[]>("queue").catch(() => null);
       if (cancel) return;
       if (stored?.length) queue.current = stored;
-      await refresh();
+      await refresh().catch(() => undefined);
     })();
-    const timer = window.setInterval(() => void refresh(), 5000);
+    const timer = window.setInterval(() => {
+      void refresh().catch(() => undefined);
+    }, 5000);
     const markOffline = () => setOffline(true);
-    const markOnline = () => void refresh();
+    const markOnline = () => void refresh().catch(() => undefined);
     window.addEventListener("offline", markOffline);
     window.addEventListener("online", markOnline);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh().catch(() => undefined);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
       cancel = true;
       window.clearInterval(timer);
       window.removeEventListener("offline", markOffline);
@@ -173,6 +218,15 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
           setOffline(false);
         } catch (error) {
           if (isOfflineError(error)) {
+            if (op.kind === "addSubmission" && op.source === "lan") {
+              toast.error("لم تصل الإجابة إلى الجهاز المستضيف. أبقِ نافذة الصادق إخوان مفتوحة والجهازين على نفس الواي فاي، ثم أعد الإرسال.");
+              try {
+                commit(await getSnapshot());
+              } catch {
+                setOffline(true);
+              }
+              throw error;
+            }
             queue.current = [...queue.current, op];
             await idbSet("queue", queue.current).catch(() => undefined);
             setOffline(true);
@@ -186,6 +240,7 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
               setOffline(true);
             }
           }
+          throw error;
         } finally {
           inflight.current -= 1;
         }
@@ -207,12 +262,12 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
       saveForm: (form) => run({ kind: "saveForm", form }),
       deleteForm: (id) => run({ kind: "deleteForm", id }),
       deleteSubmission: (id) => run({ kind: "deleteSubmission", id }),
-      addSubmission: (input) => run({ kind: "addSubmission", id: crypto.randomUUID(), ...input }),
+      addSubmission: (input) => run({ kind: "addSubmission", id: newId(), ...input }),
       importSubmissions: (formId, rows) =>
         run({
           kind: "importSubmissions",
           formId,
-          rows: rows.map((row) => ({ ...row, id: crypto.randomUUID() })),
+          rows: rows.map((row) => ({ ...row, id: newId() })),
         }),
     }),
     [offline, refresh, run, snap],
