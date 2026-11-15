@@ -7,6 +7,7 @@ import { submissionsFromCsv, submissionsToCsv } from "@/lib/maydan/csv";
 import { useMaydan } from "@/lib/maydan/context";
 import { downloadBlob, downloadText, fileSlug } from "@/lib/maydan/download";
 import { formatWhen } from "@/lib/maydan/format";
+import { gradeAnswers } from "@/lib/maydan/logic";
 import type { Question, Submission } from "@/lib/maydan/types";
 import { IMAGE_SENTINEL } from "@/lib/maydan/types";
 import { submissionsToXlsxBlob } from "@/lib/maydan/xlsform";
@@ -240,8 +241,8 @@ export function DataView({ formId }: { formId: string }) {
           <FormRunner
             form={form}
             submitLabel="حفظ الإجابة في الدفتر"
-            onSubmit={async (answers, deviceLabel) => {
-              await addSubmission({ formId, answers, deviceLabel, source: "desk" });
+            onSubmit={async (answers, deviceLabel, categoryId) => {
+              await addSubmission({ formId, answers, deviceLabel, source: "desk", categoryId });
               toast.success("حُفظت الإجابة في دفتر هذا الجهاز");
               setFilling(false);
             }}
@@ -258,6 +259,13 @@ export function DataView({ formId }: { formId: string }) {
           rows.map((row) => {
             const titleQuestion = form.questions.find((question) => question.type === "text");
             const titleValue = titleQuestion ? labelOf(titleQuestion, row.answers[titleQuestion.name]) : row.deviceLabel;
+            const grade = gradeAnswers(form, row.answers, row.categoryId);
+            const category = form.categories?.find((item) => item.id === row.categoryId);
+            const shown = form.questions.filter(
+              (question) =>
+                question.type !== "note" &&
+                (!row.categoryId || !question.categoryId || question.categoryId === row.categoryId),
+            );
             return (
               <li key={row.id} className="rounded-lg border border-border bg-surface p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -265,7 +273,13 @@ export function DataView({ formId }: { formId: string }) {
                     <h2 className="text-base font-bold">{titleValue}</h2>
                     <p className="text-sm text-muted">
                       {formatWhen(row.submittedAt)} · {row.deviceLabel} · {row.source === "lan" ? "من الشبكة" : "من المكتب"}
+                      {category ? ` · ${category.label}` : ""}
                     </p>
+                    {grade.scored ? (
+                      <p className="mt-1 text-sm font-semibold text-primary tabular-nums">
+                        {grade.average}/10 · {grade.band}
+                      </p>
+                    ) : null}
                   </div>
                   <Button variant="danger" onClick={() => void deleteSubmission(row.id)}>
                     <Trash2 className="size-4" />
@@ -273,12 +287,17 @@ export function DataView({ formId }: { formId: string }) {
                   </Button>
                 </div>
                 <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {form.questions
-                    .filter((question) => question.type !== "note")
-                    .map((question) => (
+                  {shown.map((question) => {
+                    const line = grade.items.find((item) => item.name === question.name);
+                    return (
                       <div key={question.id}>
                         <dt className="text-xs text-muted">{question.label}</dt>
                         <dd className="text-sm font-medium text-fg">{labelOf(question, row.answers[question.name])}</dd>
+                        {line ? (
+                          <dd className="text-xs font-semibold text-primary tabular-nums">
+                            {line.points}/10 · {line.band}
+                          </dd>
+                        ) : null}
                         {question.type === "image" &&
                         (row.answers[question.name] === IMAGE_SENTINEL ||
                           (typeof row.answers[question.name] === "string" &&
@@ -286,7 +305,8 @@ export function DataView({ formId }: { formId: string }) {
                           <PhotoSlot submissionId={row.id} name={question.name} />
                         ) : null}
                       </div>
-                    ))}
+                    );
+                  })}
                 </dl>
               </li>
             );
