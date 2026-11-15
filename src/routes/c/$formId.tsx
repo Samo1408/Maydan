@@ -20,7 +20,7 @@ function CollectForm() {
         <Link to="/c" className="text-sm font-semibold text-primary">
           كل النماذج
         </Link>
-        <span className="font-display text-xs tracking-widest text-primary">MAYDAN</span>
+        <span className="font-display text-xs tracking-widest text-primary">ALSADEK-FORMS</span>
       </div>
       {!form ? (
         <section className="rounded-lg border border-border bg-surface p-5">
@@ -56,8 +56,8 @@ function CollectForm() {
             key={done}
             form={form}
             submitLabel="إرسال إلى الجهاز المستضيف"
-            onSubmit={async (answers, deviceLabel) => {
-              await addSubmission({ formId: form.id, answers, deviceLabel, source: "lan" });
+            onSubmit={async (answers, deviceLabel, categoryId) => {
+              await addSubmission({ formId: form.id, answers, deviceLabel, source: "lan", categoryId });
               toast.success("تم الإرسال");
               setDone((value) => value + 1);
             }}
