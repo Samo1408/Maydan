@@ -1,0 +1,86 @@
+name: Build Windows package
+
+# Manual run: GitHub → Actions → "Build Windows package" → Run workflow
+on:
+  workflow_dispatch:
+    inputs:
+      node_major:
+        description: "Node.js major version bundled inside the package"
+        required: false
+        default: "22"
+
+env:
+  PACKAGE_NAME: Alsadek-Forms-Windows
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (build machine)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_major || '22' }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (standalone node-server output)
+        env:
+          MAYDAN_DESKTOP: "1"
+        run: |
+          node scripts/with-app-env.mjs vite build
+          test -f .output/server/index.mjs || { echo "::error::.output/server/index.mjs was not produced"; exit 1; }
+
+      - name: Smoke test the build
+        continue-on-error: true
+        run: |
+          PORT=8099 HOST=127.0.0.1 NITRO_PORT=8099 node .output/server/index.mjs > smoke.log 2>&1 &
+          pid=$!
+          ok=0
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8099/c || true)
+            if [ "$code" != "000" ] && [ "$code" -lt 500 ]; then ok=1; break; fi
+            sleep 1
+          done
+          kill $pid 2>/dev/null || true
+          cat smoke.log
+          [ "$ok" = "1" ] || { echo "::warning::smoke test did not get a non-5xx response"; exit 1; }
+          rm -rf data
+
+      - name: Download portable Node.js for Windows
+        env:
+          NODE_MAJOR: ${{ inputs.node_major || '22' }}
+        run: |
+          version=$(curl -fsSL https://nodejs.org/dist/index.json \
+            | jq -r --arg m "v${NODE_MAJOR}." '[.[] | select(.version | startswith($m))][0].version')
+          echo "Bundling Node ${version}"
+          curl -fsSL -o node-win.zip "https://nodejs.org/dist/${version}/node-${version}-win-x64.zip"
+          unzip -q node-win.zip
+          mkdir -p runtime
+          cp "node-${version}-win-x64/node.exe" runtime/node.exe
+
+      - name: Assemble package
+        run: |
+          pkg="dist/${PACKAGE_NAME}"
+          mkdir -p "$pkg/data" "$pkg/runtime"
+          cp -r .output "$pkg/.output"
+          cp runtime/node.exe "$pkg/runtime/node.exe"
+          cp windows/start.mjs windows/Alsadek-Forms.bat "$pkg/"
+          cp windows/*.txt "$pkg/"
+          echo "Package contents:"
+          find "$pkg" -maxdepth 2 -not -path "*/.output/*" | sort
+          du -sh "$pkg"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 30
