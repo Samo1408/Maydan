@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiCollectRouteImport } from './routes/api/collect'
 import { Route as CIndexRouteImport } from './routes/c/index'
 import { Route as CFormIdRouteImport } from './routes/c/$formId'
 import { Route as FormsFormIdIndexRouteImport } from './routes/forms/$formId/index'
@@ -18,6 +19,11 @@ import { Route as FormsFormIdDataRouteImport } from './routes/forms/$formId/data
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCollectRoute = ApiCollectRouteImport.update({
+  id: '/api/collect',
+  path: '/api/collect',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CIndexRoute = CIndexRouteImport.update({
@@ -43,6 +49,7 @@ const FormsFormIdDataRoute = FormsFormIdDataRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/collect': typeof ApiCollectRoute
   '/c/$formId': typeof CFormIdRoute
   '/c/': typeof CIndexRoute
   '/forms/$formId/data': typeof FormsFormIdDataRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/collect': typeof ApiCollectRoute
   '/c/$formId': typeof CFormIdRoute
   '/c': typeof CIndexRoute
   '/forms/$formId/data': typeof FormsFormIdDataRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/collect': typeof ApiCollectRoute
   '/c/$formId': typeof CFormIdRoute
   '/c/': typeof CIndexRoute
   '/forms/$formId/data': typeof FormsFormIdDataRoute
@@ -66,12 +75,24 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/c/$formId' | '/c/' | '/forms/$formId/data' | '/forms/$formId/'
+    | '/'
+    | '/api/collect'
+    | '/c/$formId'
+    | '/c/'
+    | '/forms/$formId/data'
+    | '/forms/$formId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/c/$formId' | '/c' | '/forms/$formId/data' | '/forms/$formId'
+  to:
+    | '/'
+    | '/api/collect'
+    | '/c/$formId'
+    | '/c'
+    | '/forms/$formId/data'
+    | '/forms/$formId'
   id:
     | '__root__'
     | '/'
+    | '/api/collect'
     | '/c/$formId'
     | '/c/'
     | '/forms/$formId/data'
@@ -80,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiCollectRoute: typeof ApiCollectRoute
   CFormIdRoute: typeof CFormIdRoute
   CIndexRoute: typeof CIndexRoute
   FormsFormIdDataRoute: typeof FormsFormIdDataRoute
@@ -93,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/collect': {
+      id: '/api/collect'
+      path: '/api/collect'
+      fullPath: '/api/collect'
+      preLoaderRoute: typeof ApiCollectRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/c/': {
@@ -128,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiCollectRoute: ApiCollectRoute,
   CFormIdRoute: CFormIdRoute,
   CIndexRoute: CIndexRoute,
   FormsFormIdDataRoute: FormsFormIdDataRoute,
