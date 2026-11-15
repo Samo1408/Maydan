@@ -34,6 +34,9 @@ jobs:
         env:
           MAYDAN_DESKTOP: "1"
         run: |
+          # with-app-env spawns "vite" without a shell, so it needs node_modules/.bin on PATH
+          # (npm run adds it automatically; a bare `node ...` call does not).
+          export PATH="$PWD/node_modules/.bin:$PATH"
           node scripts/with-app-env.mjs vite build
           test -f .output/server/index.mjs || { echo "::error::.output/server/index.mjs was not produced"; exit 1; }
 
