@@ -5,18 +5,20 @@ import { toast } from "sonner";
 import { useMaydan } from "@/lib/maydan/context";
 import { downloadBlob, downloadText, fileSlug } from "@/lib/maydan/download";
 import { normalizeForm, sanitizeName } from "@/lib/maydan/logic";
-import type { FormDef, Question, QuestionType } from "@/lib/maydan/types";
-import { QUESTION_TYPES } from "@/lib/maydan/types";
+import type { FormDef, Question, QuestionType, ScoreBand } from "@/lib/maydan/types";
+import { DEFAULT_SCORE_BANDS, QUESTION_TYPES } from "@/lib/maydan/types";
 import { formFromCsvText, formToXlsxBlob, surveyMatrix } from "@/lib/maydan/xlsform";
 import { formFromXlsx } from "@/lib/maydan/xlsform";
 import { toCsv } from "@/lib/maydan/csv";
 import { FormRunner } from "./runner";
 import { TYPE_META } from "./type-meta";
 import { Button, Field, TextArea, TextInput, Toggle } from "./ui";
+import { newId } from "@/lib/maydan/id";
+import { blankForm } from "@/lib/maydan/blank";
 import { cn } from "@/lib/cn";
 
 function freshQuestion(type: QuestionType, index: number): Question {
-  const id = crypto.randomUUID();
+  const id = newId();
   const base: Question = {
     id,
     type,
@@ -38,16 +40,16 @@ function freshQuestion(type: QuestionType, index: number): Question {
   return base;
 }
 
-export function Builder({ formId }: { formId: string }) {
+export function Builder({ formId, isNew = false }: { formId: string; isNew?: boolean }) {
   const { snap, saveForm, offline } = useMaydan();
   const remote = snap.forms.find((form) => form.id === formId);
-  const [draft, setDraft] = useState<FormDef | null>(remote ?? null);
-  const [activeId, setActiveId] = useState(remote?.questions[0]?.id ?? "");
-  const [status, setStatus] = useState(offline ? "على الجهاز" : "محفوظ");
+  const [fresh] = useState<FormDef | null>(() => (!remote && isNew ? blankForm(formId) : null));
+  const [draft, setDraft] = useState<FormDef | null>(remote ?? fresh);
+  const [activeId, setActiveId] = useState((remote ?? fresh)?.questions[0]?.id ?? "");
+  const [status, setStatus] = useState(fresh ? "نموذج جديد غير محفوظ" : "محفوظ");
   const [preview, setPreview] = useState(false);
-  const dirty = useRef(false);
-  const saveRef = useRef(saveForm);
-  saveRef.current = saveForm;
+  const [dirty, setDirty] = useState(Boolean(fresh));
+  const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -57,23 +59,39 @@ export function Builder({ formId }: { formId: string }) {
   }, [remote]);
 
   useEffect(() => {
-    if (!draft || !dirty.current) return;
-    const handle = window.setTimeout(() => {
-      dirty.current = false;
-      const normalized = normalizeForm(draft);
-      setStatus("يحفظ…");
-      void saveRef.current(normalized).then(() => setStatus(offline ? "محفوظ على الجهاز" : "محفوظ على الخادم"));
-    }, 700);
-    return () => window.clearTimeout(handle);
-  }, [draft, offline]);
+    if (!dirty) return;
+    const onLeave = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, [dirty]);
 
   function update(patch: Partial<FormDef> | ((form: FormDef) => FormDef)) {
-    dirty.current = true;
-    setStatus("تعديل…");
+    setDirty(true);
+    setStatus("تعديلات غير محفوظة");
     setDraft((current) => {
       if (!current) return current;
       return typeof patch === "function" ? patch(current) : { ...current, ...patch };
     });
+  }
+
+  async function saveDraft() {
+    if (!draft) return;
+    const normalized = normalizeForm(draft);
+    setDraft(normalized);
+    setSaving(true);
+    setStatus("يحفظ…");
+    try {
+      await saveForm(normalized);
+      setDirty(false);
+      setStatus(offline ? "محفوظ على الجهاز" : "محفوظ");
+      toast.success("تم حفظ النموذج");
+    } catch {
+      setStatus("تعذّر الحفظ");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!draft) {
@@ -113,7 +131,8 @@ export function Builder({ formId }: { formId: string }) {
       const next = file.name.toLowerCase().endsWith(".csv")
         ? formFromCsvText(await file.text(), draft)
         : await formFromXlsx(await file.arrayBuffer(), draft);
-      dirty.current = true;
+      setDirty(true);
+      setStatus("تعديلات غير محفوظة");
       setDraft(normalizeForm({ ...next, id: draft.id, createdAt: draft.createdAt }));
       toast.success("استُبدلت أسئلة هذا النموذج بمحتوى الملف");
     } catch (error) {
@@ -132,6 +151,9 @@ export function Builder({ formId }: { formId: string }) {
           البيانات
         </Link>
         <span className="ms-auto text-sm text-muted">{status}</span>
+        <Button variant="primary" disabled={saving} onClick={() => void saveDraft()}>
+          {saving ? "يحفظ…" : dirty && fresh && !remote ? "حفظ النموذج الجديد" : "حفظ"}
+        </Button>
       </div>
 
       <div className="rounded-lg border border-border bg-surface p-4">
@@ -153,6 +175,134 @@ export function Builder({ formId }: { formId: string }) {
           <Field label="وصف قصير" hint="يظهر في المكتبة وصفحة الجمع">
             <TextArea value={draft.description} onChange={(event) => update({ description: event.target.value })} />
           </Field>
+        </div>
+        <div className="mt-4 space-y-3 border-t border-border pt-4">
+          <div>
+            <p className="text-sm font-semibold">فئات داخل النموذج</p>
+            <p className="mt-1 text-sm text-pretty text-muted">
+              بعد النشر تظهر الفئات أولاً. اختيار فئة يفتح أسئلتها فقط. السؤال بلا فئة يظهر داخل كل الفئات.
+            </p>
+          </div>
+          {(draft.categories ?? []).map((category, index) => (
+            <div key={category.id} className="grid gap-2 rounded-lg border border-border bg-bg p-3 md:grid-cols-2">
+              <Field label={`الفئة ${index + 1}`}>
+                <TextInput
+                  value={category.label}
+                  onChange={(event) =>
+                    update((form) => ({
+                      ...form,
+                      categories: (form.categories ?? []).map((item) =>
+                        item.id === category.id ? { ...item, label: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="وصف الفئة">
+                <TextInput
+                  value={category.description ?? ""}
+                  onChange={(event) =>
+                    update((form) => ({
+                      ...form,
+                      categories: (form.categories ?? []).map((item) =>
+                        item.id === category.id ? { ...item, description: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                />
+              </Field>
+              <div className="md:col-span-2">
+              <Field label="شرط الظهور" hint="مثل سؤال: ${role} = 'field' أو selected(${services}, 'water')">
+                <TextInput
+                  dir="ltr"
+                  value={category.relevant ?? ""}
+                  onChange={(event) =>
+                    update((form) => ({
+                      ...form,
+                      categories: (form.categories ?? []).map((item) =>
+                        item.id === category.id ? { ...item, relevant: event.target.value } : item,
+                      ),
+                    }))
+                  }
+                />
+              </Field>
+              </div>
+              <div className="md:col-span-2">
+                <Button
+                  variant="ghost"
+                  onClick={() =>
+                    update((form) => ({
+                      ...form,
+                      categories: (form.categories ?? []).filter((item) => item.id !== category.id),
+                      questions: form.questions.map((question) =>
+                        question.categoryId === category.id ? { ...question, categoryId: undefined } : question,
+                      ),
+                    }))
+                  }
+                >
+                  <Trash2 className="size-4" />
+                  حذف الفئة
+                </Button>
+              </div>
+            </div>
+          ))}
+          <Button
+            variant="quiet"
+            onClick={() =>
+              update((form) => ({
+                ...form,
+                categories: [
+                  ...(form.categories ?? []),
+                  {
+                    id: newId(),
+                    label: `فئة ${String.fromCharCode(65 + (form.categories?.length ?? 0))}`,
+                    description: "",
+                  },
+                ],
+              }))
+            }
+          >
+            <Plus className="size-4" />
+            فئة
+          </Button>
+        </div>
+        <div className="mt-4 space-y-2 border-t border-border pt-4">
+          <p className="text-sm font-semibold">تصنيف النقاط من 0 إلى 10</p>
+          <p className="text-sm text-pretty text-muted">
+            كل سؤال مُقيَّم يأخذ نقطة حسب قربه من الإجابة المرجعية، ثم يُكتب التصنيف تلقائياً في البيانات.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(draft.scoreBands?.length ? draft.scoreBands : DEFAULT_SCORE_BANDS).map((band, index) => (
+              <div key={`${band.label}-${index}`} className="flex items-center gap-2">
+                <TextInput
+                  dir="ltr"
+                  className="w-20"
+                  inputMode="decimal"
+                  aria-label="حد التصنيف"
+                  value={String(band.min)}
+                  onChange={(event) => {
+                    const bands: ScoreBand[] = [
+                      ...(draft.scoreBands?.length ? draft.scoreBands : DEFAULT_SCORE_BANDS),
+                    ];
+                    const min = Number(event.target.value);
+                    bands[index] = { ...bands[index]!, min: Number.isNaN(min) ? 0 : min };
+                    update({ scoreBands: bands });
+                  }}
+                />
+                <TextInput
+                  aria-label="اسم التصنيف"
+                  value={band.label}
+                  onChange={(event) => {
+                    const bands: ScoreBand[] = [
+                      ...(draft.scoreBands?.length ? draft.scoreBands : DEFAULT_SCORE_BANDS),
+                    ];
+                    bands[index] = { ...bands[index]!, label: event.target.value };
+                    update({ scoreBands: bands });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="quiet" onClick={() => void exportXlsx()}>
@@ -308,9 +458,26 @@ export function Builder({ formId }: { formId: string }) {
                   onChange={(required) => patchQuestion(active.id, { required })}
                 />
               ) : null}
+              {(draft.categories ?? []).length ? (
+                <Field label="الفئة" hint="بلا فئة يعني أن السؤال يظهر داخل كل الفئات">
+                  <select
+                    value={active.categoryId ?? ""}
+                    onChange={(event) => patchQuestion(active.id, { categoryId: event.target.value || undefined })}
+                    className="h-11 w-full rounded-lg border border-border bg-bg px-3 text-fg"
+                  >
+                    <option value="">تظهر في كل الفئات</option>
+                    {(draft.categories ?? []).map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
               {active.type === "select_one" || active.type === "select_multiple" ? (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">الخيارات</p>
+                  <p className="text-xs text-muted">عمود النقاط من 0 إلى 10. الأقرب للمرجع أو الأعلى نقاطاً هو الأفضل.</p>
                   {(active.choices ?? []).map((choice, index) => (
                     <div key={`${active.id}-${index}`} className="flex flex-wrap items-center gap-2">
                       <TextInput
@@ -318,13 +485,20 @@ export function Builder({ formId }: { formId: string }) {
                         className="min-w-0 flex-1"
                         value={choice.name}
                         aria-label="اسم الخيار"
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const nextName = event.target.value;
+                          const points = { ...(active.choicePoints ?? {}) };
+                          if (choice.name !== nextName && points[choice.name] != null) {
+                            points[nextName] = points[choice.name]!;
+                            delete points[choice.name];
+                          }
                           patchQuestion(active.id, {
+                            choicePoints: points,
                             choices: (active.choices ?? []).map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, name: event.target.value } : item,
+                              itemIndex === index ? { ...item, name: nextName } : item,
                             ),
-                          })
-                        }
+                          });
+                        }}
                       />
                       <TextInput
                         className="min-w-0 flex-1"
@@ -337,6 +511,20 @@ export function Builder({ formId }: { formId: string }) {
                             ),
                           })
                         }
+                      />
+                      <TextInput
+                        dir="ltr"
+                        className="w-20"
+                        inputMode="decimal"
+                        aria-label="نقاط الخيار من 0 إلى 10"
+                        placeholder="0-10"
+                        value={active.choicePoints?.[choice.name] ?? ""}
+                        onChange={(event) => {
+                          const next = { ...(active.choicePoints ?? {}) };
+                          if (event.target.value.trim() === "") delete next[choice.name];
+                          else next[choice.name] = Math.min(10, Math.max(0, Number(event.target.value) || 0));
+                          patchQuestion(active.id, { choicePoints: next });
+                        }}
                       />
                       <Button
                         variant="ghost"
@@ -386,6 +574,40 @@ export function Builder({ formId }: { formId: string }) {
                       onChange={(event) => patchQuestion(active.id, { constraintMessage: event.target.value })}
                     />
                   </Field>
+                </div>
+              ) : null}
+              {active.type !== "note" && active.type !== "image" && active.type !== "geopoint" ? (
+                <div className="grid gap-3 border-t border-border pt-3 md:grid-cols-2">
+                  <Field
+                    label="الإجابة المرجعية"
+                    hint="للرقم اكتب القيمة المثالية. للاختيار اكتب اسم الخيار، أو ضع نقاطاً لكل خيار."
+                  >
+                    <TextInput
+                      dir="ltr"
+                      value={active.scoreExpected ?? ""}
+                      onChange={(event) => patchQuestion(active.id, { scoreExpected: event.target.value })}
+                    />
+                  </Field>
+                  {active.type === "integer" || active.type === "decimal" || active.type === "rating" ? (
+                    <Field label="مسافة الصفر" hint="فرق الرقم عن المرجع الذي تصبح عنده النقطة 0">
+                      <TextInput
+                        dir="ltr"
+                        inputMode="decimal"
+                        value={active.scoreTolerance ?? ""}
+                        onChange={(event) => {
+                          const raw = event.target.value.trim();
+                          const tolerance = Number(raw);
+                          patchQuestion(active.id, {
+                            scoreTolerance: raw === "" || Number.isNaN(tolerance) ? undefined : tolerance,
+                          });
+                        }}
+                      />
+                    </Field>
+                  ) : (
+                    <p className="self-end text-sm text-pretty text-muted">
+                      المطابقة التامة 10. القريب يأخذ نقطة أقل، والبعيد 0. التصنيف يُكتب في البيانات.
+                    </p>
+                  )}
                 </div>
               ) : null}
             </div>
