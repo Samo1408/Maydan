@@ -15,7 +15,7 @@ export function downloadText(filename: string, content: string, type = "text/csv
 
 export function fileSlug(title: string): string {
   const cleaned = title.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
-  return cleaned.slice(0, 48) || "maydan";
+  return cleaned.slice(0, 48) || "alsadek-forms";
 }
 
 export async function copyText(value: string): Promise<boolean> {
