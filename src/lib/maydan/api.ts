@@ -19,6 +19,22 @@ const questionSchema = z.object({
   relevant: z.string().max(400).optional(),
   constraint: z.string().max(400).optional(),
   constraintMessage: z.string().max(300).optional(),
+  categoryId: z.string().max(80).optional(),
+  scoreExpected: z.string().max(200).optional(),
+  scoreTolerance: z.number().min(0).max(1_000_000).optional(),
+  choicePoints: z.record(z.string().max(80), z.number().min(0).max(10)).optional(),
+});
+
+const categorySchema = z.object({
+  id: z.string().min(1).max(80),
+  label: z.string().max(120),
+  description: z.string().max(400).optional(),
+  relevant: z.string().max(400).optional(),
+});
+
+const bandSchema = z.object({
+  min: z.number().min(0).max(10),
+  label: z.string().min(1).max(40),
 });
 
 const formSchema = z.object({
@@ -28,6 +44,8 @@ const formSchema = z.object({
   version: z.string().max(40),
   deployed: z.boolean(),
   questions: z.array(questionSchema).max(150),
+  categories: z.array(categorySchema).max(30).optional(),
+  scoreBands: z.array(bandSchema).max(8).optional(),
   createdAt: z.string().max(40),
   updatedAt: z.string().max(40),
 });
@@ -41,6 +59,7 @@ const submissionInput = z.object({
   deviceLabel: z.string().max(80),
   source: z.enum(["desk", "lan"]),
   submittedAt: z.string().max(40).optional(),
+  categoryId: z.string().max(80).optional(),
 });
 
 function parsed<T>(schema: z.ZodType<T>, data: unknown): T {
@@ -49,9 +68,14 @@ function parsed<T>(schema: z.ZodType<T>, data: unknown): T {
   return result.data;
 }
 
-export const getSnapshot = createServerFn({ method: "GET" }).handler(async (): Promise<Snapshot> => {
+export const getSnapshot = createServerFn({ method: "POST" }).handler(async (): Promise<Snapshot> => {
   const store = await import("./store.server");
   return store.snapshot();
+});
+
+export const getRequestUserAgent = createServerFn({ method: "GET" }).handler(async () => {
+  const { getRequest } = await import("@tanstack/react-start/server");
+  return getRequest()?.headers.get("user-agent") ?? "";
 });
 
 export const saveForm = createServerFn({ method: "POST" })
