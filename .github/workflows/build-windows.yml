@@ -85,5 +85,7 @@ jobs:
         with:
           name: ${{ env.PACKAGE_NAME }}
           path: dist
+          # .output starts with a dot; upload-artifact skips hidden files unless told otherwise
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
