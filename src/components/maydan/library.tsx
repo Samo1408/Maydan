@@ -3,40 +3,12 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { FileSpreadsheet, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useMaydan } from "@/lib/maydan/context";
+import { newId } from "@/lib/maydan/id";
 import { isSameLocalDay } from "@/lib/maydan/format";
 import { normalizeForm } from "@/lib/maydan/logic";
-import type { FormDef } from "@/lib/maydan/types";
 import { formFromCsvText, formFromXlsx } from "@/lib/maydan/xlsform";
 import { NetworkCard } from "./network-card";
 import { Button } from "./ui";
-
-function blankForm(): FormDef {
-  const now = new Date().toISOString();
-  return {
-    id: crypto.randomUUID(),
-    title: "نموذج جديد",
-    description: "",
-    version: "1",
-    deployed: false,
-    createdAt: now,
-    updatedAt: now,
-    questions: [
-      {
-        id: crypto.randomUUID(),
-        type: "note",
-        name: "intro",
-        label: "تعليمات قصيرة لجامع البيانات قبل بدء الأسئلة.",
-      },
-      {
-        id: crypto.randomUUID(),
-        type: "text",
-        name: "respondent_name",
-        label: "الاسم",
-        required: true,
-      },
-    ],
-  };
-}
 
 export function Library() {
   const { snap, saveForm, deleteForm } = useMaydan();
@@ -47,14 +19,16 @@ export function Library() {
   const deployed = snap.forms.filter((form) => form.deployed).length;
 
   async function createForm() {
-    const form = normalizeForm(blankForm());
-    await saveForm(form);
-    await navigate({ to: "/forms/$formId", params: { formId: form.id } });
+    try {
+      await navigate({ to: "/forms/$formId", params: { formId: newId() }, search: { new: true } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذّر إنشاء النموذج");
+    }
   }
 
   async function importFile(file: File) {
     try {
-      const base = { id: crypto.randomUUID(), deployed: false, createdAt: new Date().toISOString() };
+      const base = { id: newId(), deployed: false, createdAt: new Date().toISOString() };
       const form = file.name.toLowerCase().endsWith(".csv")
         ? formFromCsvText(await file.text(), base)
         : await formFromXlsx(await file.arrayBuffer(), base);
@@ -80,8 +54,8 @@ export function Library() {
         <div className="absolute inset-y-0 start-0 w-2 bg-primary" aria-hidden="true" />
         <div className="flex flex-wrap items-end justify-between gap-4 px-5 py-5 ps-6">
           <div className="max-w-xl">
-            <p className="font-display text-xs tracking-widest text-primary">FIELD LEDGER</p>
-            <h1 className="mt-1 text-3xl font-bold text-balance text-fg">دفتر النماذج الميداني</h1>
+            <p className="font-display text-xs tracking-widest text-primary">ALSADEK-FORMS</p>
+            <h1 className="mt-1 text-3xl font-bold text-balance text-fg">الصادق إخوان 🙂</h1>
             <p className="mt-2 text-pretty text-muted">
               ابنِ النموذج، استورد XLSForm أو CSV، ثم انشره على عنوان جهازك. أي هاتف على نفس الراوتر يعبّئ ويرسل، والبيانات لا تغادر الشبكة.
             </p>
