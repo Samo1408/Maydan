@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { validateAnswers } from "./logic";
@@ -9,197 +9,71 @@ type Database = { forms: FormDef[]; submissions: Submission[] };
 
 const filePath = path.join(process.cwd(), "data", "maydan-store.json");
 
-let database: Database | null = null;
-let writeChain: Promise<void> = Promise.resolve();
+/**
+ * The server bundle can hold more than one copy of this module (the phone
+ * intake middleware and the app's server functions are bundled separately).
+ * State therefore lives on globalThis and is re-validated against the file's
+ * modification time, so a row saved through one copy shows up in the other
+ * without restarting the app.
+ */
+type Shared = { database: Database | null; mtimeMs: number; writeChain: Promise<void> };
+const shared = ((globalThis as Record<string, unknown>).__alsadekStore ??= {
+  database: null,
+  mtimeMs: 0,
+  writeChain: Promise.resolve(),
+}) as Shared;
 
-function ago(days: number, hours = 9): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  date.setHours(hours, 15, 0, 0);
-  return date.toISOString();
-}
+const DEMO_FORM_ID = "frm-household";
 
 function seed(): Database {
-  const created = ago(12, 8);
-  const form: FormDef = {
-    id: "frm-household",
-    title: "مسح الأسر السريع",
-    description: "نموذج تجريبي بأسلوب KoBo. الإجابات تبقى على هذا الجهاز، والهواتف على نفس الراوتر ترسل إلى هنا من غير إنترنت.",
-    version: "1",
-    deployed: true,
-    createdAt: created,
-    updatedAt: ago(1, 11),
-    questions: [
-      {
-        id: "q-intro",
-        type: "note",
-        name: "intro",
-        label: "مسح قصير للحي. لا يُرفع شيء إلى الإنترنت. أكمل الحقول الظاهرة فقط.",
-      },
-      {
-        id: "q-consent",
-        type: "acknowledge",
-        name: "consent",
-        label: "أوافق على تسجيل هذه الإجابات على جهاز الفريق المحلي",
-        required: true,
-      },
-      {
-        id: "q-name",
-        type: "text",
-        name: "respondent_name",
-        label: "اسم المبحوث",
-        hint: "الاسم المستخدم داخل الفريق فقط",
-        required: true,
-      },
-      {
-        id: "q-size",
-        type: "integer",
-        name: "hh_size",
-        label: "عدد أفراد الأسرة",
-        required: true,
-        constraint: ". >= 1 and . <= 30",
-        constraintMessage: "العدد بين 1 و 30",
-      },
-      {
-        id: "q-housing",
-        type: "select_one",
-        name: "housing_type",
-        label: "نوع المسكن",
-        required: true,
-        choices: [
-          { name: "apartment", label: "شقة" },
-          { name: "house", label: "بيت مستقل" },
-          { name: "tent", label: "خيمة / مأوى مؤقت" },
-          { name: "collective", label: "سكن جماعي" },
-        ],
-      },
-      {
-        id: "q-shelter",
-        type: "text",
-        name: "shelter_note",
-        label: "صف المأوى المؤقت",
-        hint: "يظهر فقط عند اختيار الخيمة",
-        relevant: "${housing_type} = 'tent'",
-      },
-      {
-        id: "q-services",
-        type: "select_multiple",
-        name: "services",
-        label: "الخدمات المتوفرة اليوم",
-        choices: [
-          { name: "water", label: "مياه" },
-          { name: "power", label: "كهرباء" },
-          { name: "latrine", label: "مرحاض" },
-          { name: "school", label: "مدرسة قريبة" },
-        ],
-      },
-      {
-        id: "q-date",
-        type: "date",
-        name: "visit_date",
-        label: "تاريخ الزيارة",
-        required: true,
-      },
-      {
-        id: "q-water",
-        type: "decimal",
-        name: "water_liters",
-        label: "تقدير المياه باللتر في اليوم",
-        constraint: ". >= 0",
-        constraintMessage: "لا يمكن أن تكون القيمة سالبة",
-      },
-      {
-        id: "q-score",
-        type: "rating",
-        name: "access_score",
-        label: "سهولة الوصول إلى المسكن",
-        hint: "1 صعب جداً — 5 سهل",
-        constraint: ". >= 1 and . <= 5",
-      },
-      {
-        id: "q-geo",
-        type: "geopoint",
-        name: "location",
-        label: "موقع الزيارة",
-        hint: "يمكن تحديده من الجهاز أو كتابته يدوياً",
-      },
-      {
-        id: "q-photo",
-        type: "image",
-        name: "facade_photo",
-        label: "صورة الواجهة",
-        hint: "اختياري. تُحفظ مضغوطة على هذا الخادم فقط",
-      },
-    ],
-  };
+  return { forms: [], submissions: [] };
+}
 
-  const people: [string, string, string, string, string, string, string, string][] = [
-    ["هدى كريم", "5", "apartment", "water power school", "12", "4", "33.513200 36.276800 18", "فريق الشمال"],
-    ["سامر نوفل", "3", "house", "water power latrine", "40", "5", "33.514100 36.291200 22", "فريق الشمال"],
-    ["ليلى حداد", "7", "tent", "water", "8", "2", "33.508400 36.301500 30", "فريق الجنوب"],
-    ["مازن عواد", "4", "collective", "power latrine", "15", "3", "33.520200 36.288100 25", "فريق الجنوب"],
-    ["ريم صالح", "6", "apartment", "water power latrine school", "25", "4", "33.511800 36.270400 14", "مكتب"],
-    ["فادي مرعي", "2", "tent", "latrine", "6", "1", "33.506600 36.305900 40", "فريق الجنوب"],
-    ["نور الياس", "8", "house", "water power school", "55", "5", "33.517700 36.281600 16", "فريق الشمال"],
-    ["جواد قاسم", "1", "apartment", "power", "10", "3", "33.509900 36.274200 20", "مكتب"],
-  ];
-
-  const submissions: Submission[] = people.map((person, index) => {
-    const answers: Answers = {
-      consent: "OK",
-      respondent_name: person[0],
-      hh_size: person[1],
-      housing_type: person[2],
-      services: person[3].split(" "),
-      visit_date: ago(index % 5, 10).slice(0, 10),
-      water_liters: person[4],
-      access_score: person[5],
-      location: person[6],
-    };
-    if (person[2] === "tent") {
-      answers.shelter_note = index % 2 === 0 ? "خيمة عائلية قرب الطريق الفرعي" : "مأوى بلاستيك يحتاج تثبيتاً";
-    }
-    return {
-      id: `sub-demo-${index + 1}`,
-      formId: form.id,
-      answers,
-      submittedAt: ago(index % 5, 10 + (index % 3)),
-      deviceLabel: person[7],
-      source: person[7] === "مكتب" ? "desk" : "lan",
-    };
-  });
-
-  return { forms: [form], submissions };
+function upgrade(data: Database): boolean {
+  const before = data.forms.length + data.submissions.length;
+  data.forms = data.forms.filter((form) => form.id !== DEMO_FORM_ID);
+  data.submissions = data.submissions.filter((submission) => submission.formId !== DEMO_FORM_ID);
+  return data.forms.length + data.submissions.length !== before;
 }
 
 async function persist(next: Database) {
   const payload = JSON.stringify(next);
-  writeChain = writeChain.then(async () => {
+  shared.writeChain = shared.writeChain.then(async () => {
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, payload, "utf8");
+    shared.mtimeMs = (await stat(filePath)).mtimeMs;
   });
-  await writeChain;
+  await shared.writeChain;
 }
 
 async function load(): Promise<Database> {
-  if (database) return database;
+  let current = 0;
+  try {
+    current = (await stat(filePath)).mtimeMs;
+  } catch {
+    current = 0;
+  }
+  if (shared.database && current === shared.mtimeMs) return shared.database;
   try {
     const raw = await readFile(filePath, "utf8");
     const parsed = JSON.parse(raw) as Database;
     if (!Array.isArray(parsed.forms) || !Array.isArray(parsed.submissions)) throw new Error("bad store");
-    database = parsed;
+    const changed = upgrade(parsed);
+    shared.database = parsed;
+    shared.mtimeMs = current;
+    if (changed) await persist(parsed);
   } catch (error) {
     const missing =
       error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
-    if (!missing && database) return database;
-    database = seed();
+    if (!missing && shared.database) return shared.database;
+    shared.database = seed();
     try {
-      await persist(database);
+      await persist(shared.database);
     } catch (writeError) {
-      console.error("[maydan] local store is memory-only", writeError);
+      console.error("[alsadek] local store is memory-only", writeError);
     }
   }
-  return database;
+  return shared.database;
 }
 
 export function networkInfo(): NetworkInfo {
@@ -244,7 +118,7 @@ export async function upsertForm(form: FormDef): Promise<Snapshot> {
   const index = data.forms.findIndex((item) => item.id === next.id);
   if (index === -1) data.forms.unshift(next);
   else data.forms[index] = next;
-  database = data;
+  shared.database = data;
   await persist(data);
   return snapshot();
 }
@@ -253,7 +127,7 @@ export async function removeForm(id: string): Promise<Snapshot> {
   const data = await load();
   data.forms = data.forms.filter((form) => form.id !== id);
   data.submissions = data.submissions.filter((submission) => submission.formId !== id);
-  database = data;
+  shared.database = data;
   await persist(data);
   return snapshot();
 }
@@ -265,13 +139,17 @@ export async function insertSubmission(input: {
   deviceLabel: string;
   source: "desk" | "lan";
   submittedAt?: string;
+  categoryId?: string;
 }): Promise<Snapshot> {
   const data = await load();
   if (data.submissions.some((item) => item.id === input.id)) return snapshot();
   const form = data.forms.find((item) => item.id === input.formId);
   if (!form) throw new Error("النموذج غير موجود");
   if (!form.deployed && input.source === "lan") throw new Error("النموذج غير منشور على الشبكة");
-  const errors = validateAnswers(form, input.answers);
+  if (input.categoryId && !form.categories?.some((category) => category.id === input.categoryId)) {
+    throw new Error("الفئة غير موجودة في هذا النموذج");
+  }
+  const errors = validateAnswers(form, input.answers, input.categoryId);
   const messages = Object.values(errors);
   if (messages.length) throw new Error(messages[0] ?? "الإجابة غير مكتملة");
   for (const value of Object.values(input.answers)) {
@@ -284,8 +162,9 @@ export async function insertSubmission(input: {
     deviceLabel: input.deviceLabel.trim().slice(0, 80) || "جهاز",
     source: input.source,
     submittedAt: input.submittedAt || new Date().toISOString(),
+    categoryId: input.categoryId,
   });
-  database = data;
+  shared.database = data;
   await persist(data);
   return snapshot();
 }
@@ -293,7 +172,7 @@ export async function insertSubmission(input: {
 export async function removeSubmission(id: string): Promise<Snapshot> {
   const data = await load();
   data.submissions = data.submissions.filter((submission) => submission.id !== id);
-  database = data;
+  shared.database = data;
   await persist(data);
   return snapshot();
 }
@@ -316,7 +195,7 @@ export async function importRows(
       submittedAt: row.submittedAt || new Date().toISOString(),
     });
   }
-  database = data;
+  shared.database = data;
   await persist(data);
   return snapshot();
 }
