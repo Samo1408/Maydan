@@ -1,5 +1,6 @@
 import type { Answers, FormDef, Submission } from "./types";
 import { IMAGE_SENTINEL } from "./types";
+import { gradeAnswers, questionIsScored } from "./logic";
 
 export function parseCsv(text: string): string[][] {
   const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
@@ -63,14 +64,36 @@ function cellValue(value: Answers[string] | undefined): string {
 
 export function submissionsToCsv(form: FormDef, rows: Submission[]): string {
   const questions = form.questions.filter((question) => question.type !== "note");
-  const header = ["_id", "_submitted_at", "_device", "_source", ...questions.map((question) => question.name)];
-  const body = rows.map((row) => [
-    row.id,
-    row.submittedAt,
-    row.deviceLabel,
-    row.source,
-    ...questions.map((question) => cellValue(row.answers[question.name])),
-  ]);
+  const scored = questions.filter((question) => questionIsScored(question));
+  const header = [
+    "_id",
+    "_submitted_at",
+    "_device",
+    "_source",
+    "_category",
+    "_score",
+    "_class",
+    ...questions.map((question) => question.name),
+    ...scored.flatMap((question) => [`${question.name}__points`, `${question.name}__class`]),
+  ];
+  const body = rows.map((row) => {
+    const grade = gradeAnswers(form, row.answers, row.categoryId);
+    const category = form.categories?.find((item) => item.id === row.categoryId)?.label ?? "";
+    return [
+      row.id,
+      row.submittedAt,
+      row.deviceLabel,
+      row.source,
+      category,
+      grade.scored ? String(grade.average) : "",
+      grade.band,
+      ...questions.map((question) => cellValue(row.answers[question.name])),
+      ...scored.flatMap((question) => {
+        const line = grade.items.find((item) => item.name === question.name);
+        return [line ? String(line.points) : "", line?.band ?? ""];
+      }),
+    ];
+  });
   return toCsv([header, ...body]);
 }
 
