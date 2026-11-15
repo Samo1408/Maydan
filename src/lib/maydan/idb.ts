@@ -1,4 +1,4 @@
-const DB_NAME = "maydan";
+const DB_NAME = "alsadek-forms";
 const STORE = "kv";
 
 function openDb(): Promise<IDBDatabase> {
