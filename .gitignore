@@ -1,0 +1,9 @@
+node_modules
+.output
+.vercel
+.tanstack
+dist
+runtime
+*.log
+# local data of the running app — never commit
+data/*.json
