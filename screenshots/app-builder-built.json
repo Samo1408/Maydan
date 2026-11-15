@@ -1,0 +1,41 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "ميدان — جمع البيانات دون إنترنت",
+      "hasCanvas": false,
+      "bodyTextLen": 1115,
+      "bodyTextHash": "673204dde0304a33aed8ebd9d304c0c89942a08893c9bb07774e23be30929038",
+      "bodyTextPrefix": "M MAYDAN ميدان المكتبة الجمع الخادم المحلي يعمل FIELD LEDGER دفت",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "ميدان — جمع البيانات دون إنترنت",
+      "hasCanvas": false,
+      "bodyTextLen": 1115,
+      "bodyTextHash": "673204dde0304a33aed8ebd9d304c0c89942a08893c9bb07774e23be30929038",
+      "bodyTextPrefix": "M MAYDAN ميدان المكتبة الجمع الخادم المحلي يعمل FIELD LEDGER دفت",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": true,
+  "baselineReasons": [
+    "desktop: body text changed (930 -> 1115 chars, hash mismatch)",
+    "mobile: body text changed (930 -> 1115 chars, hash mismatch)"
+  ]
+}
