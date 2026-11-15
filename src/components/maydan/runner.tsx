@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Camera, LocateFixed, Star } from "lucide-react";
-import { answerCount, isRelevant, validateAnswers } from "@/lib/maydan/logic";
+import { answerCount, isRelevant, questionsInScope, validateAnswers } from "@/lib/maydan/logic";
 import type { Answers, FormDef } from "@/lib/maydan/types";
 import { cn } from "@/lib/cn";
 import { Button, TextArea, TextInput } from "./ui";
@@ -35,24 +35,31 @@ export function FormRunner({
 }: {
   form: FormDef;
   submitLabel: string;
-  onSubmit: (answers: Answers, deviceLabel: string) => Promise<void> | void;
+  onSubmit: (answers: Answers, deviceLabel: string, categoryId?: string) => Promise<void> | void;
 }) {
   const [answers, setAnswers] = useState<Answers>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [device, setDevice] = useState("جامع البيانات");
   const [pending, setPending] = useState(false);
+  const [sendError, setSendError] = useState("");
   const [geoNote, setGeoNote] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const categories = form.categories ?? [];
+  const picking = categories.length > 0 && !categoryId;
+  const openCategories = categories.filter((category) => isRelevant(category.relevant, answers));
 
   useEffect(() => {
     const saved = localStorage.getItem("maydan-device");
     if (saved) setDevice(saved);
   }, []);
 
-  const visible = useMemo(
-    () => form.questions.filter((question) => isRelevant(question.relevant, answers)),
-    [answers, form.questions],
-  );
-  const progress = answerCount(form, answers);
+  const visible = useMemo(() => {
+    const pool = picking
+      ? form.questions.filter((question) => !question.categoryId)
+      : questionsInScope(form, categoryId || undefined);
+    return pool.filter((question) => isRelevant(question.relevant, answers));
+  }, [answers, categoryId, form, picking]);
+  const progress = answerCount(form, answers, categoryId || undefined);
 
   function setAnswer(name: string, value: Answers[string]) {
     setAnswers((current) => ({ ...current, [name]: value }));
@@ -65,10 +72,11 @@ export function FormRunner({
   }
 
   async function submit() {
-    const nextErrors = validateAnswers(form, answers);
+    const nextErrors = validateAnswers(form, answers, categoryId || undefined);
     setErrors(nextErrors);
     const first = form.questions.find((question) => nextErrors[question.name]);
     if (first) {
+      setSendError(nextErrors[first.name] ?? "أكمل الحقول المطلوبة قبل الإرسال");
       document.getElementById(`q-${first.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -81,17 +89,36 @@ export function FormRunner({
       }
     }
     setPending(true);
+    setSendError("");
     try {
       localStorage.setItem("maydan-device", device.trim() || "جامع البيانات");
-      await onSubmit(clean, device.trim() || "جامع البيانات");
+      await onSubmit(clean, device.trim() || "جامع البيانات", categoryId || undefined);
       setAnswers({});
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : "لم تصل الإجابة إلى الجهاز المستضيف");
     } finally {
       setPending(false);
     }
   }
 
+  const category = categories.find((item) => item.id === categoryId);
+
   return (
     <div className="space-y-4">
+      {category ? (
+        <button
+          type="button"
+          className="text-sm font-semibold text-primary"
+          onClick={() => {
+            setCategoryId("");
+            setErrors({});
+          }}
+        >
+          كل الفئات
+        </button>
+      ) : null}
+      {category ? <h2 className="text-xl font-bold text-balance">{category.label}</h2> : null}
+      {!picking ? (
       <div className="rounded-lg border border-border bg-surface p-4">
         <div className="mb-2 flex items-center justify-between gap-3 text-sm text-muted">
           <span>الحقول المطلوبة</span>
@@ -108,6 +135,7 @@ export function FormRunner({
           />
         </div>
       </div>
+      ) : null}
 
       {visible.map((question, index) => {
         const value = answers[question.name];
@@ -296,6 +324,39 @@ export function FormRunner({
         );
       })}
 
+      {picking ? (
+        <div className="space-y-3">
+          <p className="text-sm text-pretty text-muted">
+            اختر فئة. أسئلة تلك الفئة فقط هي التي تُفتح وتُرسل. الفئة ذات الشرط تظهر بعد تحققه.
+          </p>
+          {openCategories.length === 0 ? (
+            <p className="rounded-lg border border-border bg-surface p-4 text-sm text-muted">لا فئة متاحة بهذا الشرط.</p>
+          ) : (
+            openCategories.map((item) => {
+              const count = form.questions.filter(
+                (question) => question.categoryId === item.id && question.type !== "note",
+              ).length;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setCategoryId(item.id);
+                    setErrors({});
+                  }}
+                  className="block w-full rounded-lg border border-border bg-surface p-4 text-start"
+                >
+                  <span className="block text-lg font-bold text-fg">{item.label}</span>
+                  {item.description ? <span className="mt-1 block text-sm text-pretty text-muted">{item.description}</span> : null}
+                  <span className="mt-2 block text-sm font-semibold text-primary tabular-nums">{count} سؤالاً</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      ) : null}
+
+      {!picking ? (
       <section className="rounded-lg border border-border bg-surface p-4">
         <label className="block">
           <span className="mb-1 block text-sm font-medium">اسم جامع البيانات</span>
@@ -308,7 +369,9 @@ export function FormRunner({
         <Button variant="primary" className="mt-4 w-full" disabled={pending} onClick={() => void submit()}>
           {pending ? "يُرسل…" : submitLabel}
         </Button>
+        {sendError ? <p className="mt-3 text-sm font-medium text-accent">{sendError}</p> : null}
       </section>
+      ) : null}
     </div>
   );
 }
