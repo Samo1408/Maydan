@@ -111,7 +111,7 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
         },
       });
     }
-    throw new Error("تعذّر الاتصال بالجهاز المستضيف. تأكد أن نافذة الصادق إخوان مفتوحة وأن الجهازين على نفس الواي فاي.");
+    throw new Error("تعذّر الاتصال بالجهاز المستضيف. تأكد أن نافذة الشيخ إخوان مفتوحة وأن الجهازين على نفس الواي فاي.");
   }, []);
 
   const optimistic = useCallback((op: Op, base: Snapshot): Snapshot => {
@@ -219,7 +219,7 @@ export function MaydanProvider({ initial, children }: { initial: Snapshot; child
         } catch (error) {
           if (isOfflineError(error)) {
             if (op.kind === "addSubmission" && op.source === "lan") {
-              toast.error("لم تصل الإجابة إلى الجهاز المستضيف. أبقِ نافذة الصادق إخوان مفتوحة والجهازين على نفس الواي فاي، ثم أعد الإرسال.");
+              toast.error("لم تصل الإجابة إلى الجهاز المستضيف. أبقِ نافذة الشيخ إخوان مفتوحة والجهازين على نفس الواي فاي، ثم أعد الإرسال.");
               try {
                 commit(await getSnapshot());
               } catch {
