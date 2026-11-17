@@ -55,7 +55,7 @@ export function Library() {
         <div className="flex flex-wrap items-end justify-between gap-4 px-5 py-5 ps-6">
           <div className="max-w-xl">
             <p className="font-display text-xs tracking-widest text-primary">ALSADEK-FORMS</p>
-            <h1 className="mt-1 text-3xl font-bold text-balance text-fg">الصادق إخوان 🙂</h1>
+            <h1 className="mt-1 text-3xl font-bold text-balance text-fg">الشيخ إخوان</h1>
             <p className="mt-2 text-pretty text-muted">
               ابنِ النموذج، استورد XLSForm أو CSV، ثم انشره على عنوان جهازك. أي هاتف على نفس الراوتر يعبّئ ويرسل، والبيانات لا تغادر الشبكة.
             </p>
