@@ -14,15 +14,15 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "الصادق إخوان — Alsadek-Forms" },
+      { title: "الشيخ إخوان — Alsadek-Forms" },
       {
         name: "description",
-        content: "الصادق إخوان: دفتر نماذج يعمل دون إنترنت، تصميم واستيراد وتصدير XLSX وCSV، وجمع الإجابات عبر الشبكة المحلية.",
+        content: "الشيخ إخوان: دفتر نماذج يعمل دون إنترنت، تصميم واستيراد وتصدير XLSX وCSV، وجمع الإجابات عبر الشبكة المحلية.",
       },
       { name: "theme-color", content: "#0e6b56" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: "الصادق إخوان" },
+      { name: "apple-mobile-web-app-title", content: "الشيخ إخوان" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
