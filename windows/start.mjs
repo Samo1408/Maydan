@@ -20,12 +20,12 @@ for (const list of Object.values(networkInterfaces())) {
 }
 
 console.log("");
-console.log("الصادق إخوان يعمل على هذا الجهاز");
+console.log("الشيخ إخوان يعمل على هذا الجهاز");
 console.log(url);
 for (const address of addresses) {
   console.log(`من هاتف على نفس الواي فاي: http://${address}:${port}/`);
 }
-console.log("أغلق هذه النافذة لإيقاف الصادق إخوان.");
+console.log("أغلق هذه النافذة لإيقاف الشيخ إخوان.");
 console.log("إذا سأل ويندوز عن جدار الحماية، اسمح لـ Node على الشبكات الخاصة.");
 console.log("");
 
