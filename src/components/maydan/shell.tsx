@@ -57,7 +57,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-screen grid-cols-[4.75rem_minmax(0,1fr)]">
       <aside className="sticky top-0 z-30 flex h-screen flex-col gap-2 border-e border-border bg-surface px-1.5 py-3">
-        <Link to="/" className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-fg" title="الصادق إخوان">
+        <Link to="/" className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-fg" title="الشيخ إخوان">
           ص
         </Link>
         <nav className="flex flex-1 flex-col gap-1">
@@ -114,7 +114,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
             <div>
               <span className="block font-display text-xs tracking-widest text-primary">ALSADEK-FORMS</span>
-              <span className="block text-lg font-bold leading-none text-fg">الصادق إخوان 🙂</span>
+              <span className="block text-lg font-bold leading-none text-fg">الشيخ إخوان</span>
             </div>
             <p className={cn("text-sm font-medium", offline ? "text-accent" : "text-primary")}>
               {offline ? "وضع الجهاز فقط" : "الخادم المحلي يعمل"}
